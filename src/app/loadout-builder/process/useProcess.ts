@@ -90,7 +90,11 @@ export function useProcess(
       cleanupRef.current();
     }
 
-    const { worker, cleanup } = createWorker();
+    const NUM_THREADS = Math.max(Math.floor(navigator.hardwareConcurrency / 3), 2);
+    console.log('We got', NUM_THREADS, 'cores');
+
+    const workers = _.times(NUM_THREADS, createWorker);
+    const cleanup = () => workers.forEach((w) => w.cleanup());
     cleanupRef.current = cleanup;
 
     setRemainingTime(0);
@@ -157,41 +161,56 @@ export function useProcess(
 
     // TODO: could potentially partition the problem (split the largest item category maybe) to spread across more cores
     const workerStart = performance.now();
-    worker
-      .process(
-        processItems,
-        getTotalModStatChanges(lockedMods, selectedStore.classType),
-        lockedProcessMods,
-        statOrder,
-        statFilters,
-        anyExotic,
-        proxy(setRemainingTime)
-      )
-      .then(({ sets, combos, statRangesFiltered }) => {
-        infoLog(
-          'loadout optimizer',
-          `useProcess: worker time ${performance.now() - workerStart}ms`
-        );
-        const hydratedSets = sets.map((set) => hydrateArmorSet(set, itemsById));
 
-        setState((oldState) => ({
-          ...oldState,
-          processing: false,
-          result: {
-            sets: hydratedSets,
-            combos,
-            processTime: performance.now() - processStart,
-            statRangesFiltered,
-          },
-        }));
+    const dividedHelms = _.chunk(
+      processItems[BucketHashes.Helmet],
+      processItems[BucketHashes.Helmet].length / NUM_THREADS
+    );
+    for (let i = 0; i < NUM_THREADS; i++) {
+      const items = {
+        ...processItems,
+        [BucketHashes.Helmet]: dividedHelms[i],
+      };
 
-        infoLog('loadout optimizer', `useProcess ${performance.now() - processStart}ms`);
-      })
-      // Cleanup the worker, we don't need it anymore.
-      .finally(() => {
-        cleanup();
-        cleanupRef.current = null;
-      });
+      console.log(items);
+
+      workers[i].worker
+        .process(
+          items,
+          getTotalModStatChanges(lockedMods, selectedStore.classType),
+          lockedProcessMods,
+          statOrder,
+          statFilters,
+          anyExotic,
+          proxy(setRemainingTime)
+        )
+        .then(({ sets, combos, statRangesFiltered }) => {
+          infoLog(
+            'loadout optimizer',
+            i,
+            `useProcess: worker time ${performance.now() - workerStart}ms`
+          );
+          const hydratedSets = sets.map((set) => hydrateArmorSet(set, itemsById));
+
+          setState((oldState) => ({
+            ...oldState,
+            processing: false,
+            result: {
+              sets: hydratedSets,
+              combos,
+              processTime: performance.now() - processStart,
+              statRangesFiltered,
+            },
+          }));
+
+          infoLog('loadout optimizer', `useProcess ${performance.now() - processStart}ms`);
+        })
+        // Cleanup the worker, we don't need it anymore.
+        .finally(() => {
+          cleanup();
+          cleanupRef.current = null;
+        });
+    }
   }, [
     defs,
     filteredItems,
