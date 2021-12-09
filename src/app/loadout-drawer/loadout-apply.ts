@@ -281,6 +281,7 @@ function doApplyLoadout(
     }
 
     // Apply any mods in the loadout. These apply to the current equipped items, not just loadout items!
+    // TODO: accumulate errors like we do for moving items
     if (loadout.parameters?.mods) {
       try {
         infoLog('loadout mods', 'Mods to apply', loadout.parameters?.mods);
@@ -290,8 +291,6 @@ function doApplyLoadout(
         infoLog('loadout mods', 'Mods applied', scope.successfulMods, scope.totalMods);
       } catch (e) {
         warnLog('loadout mods', 'error applying mods', e);
-        // TODO: work on errors
-        throw e;
       }
     }
 
