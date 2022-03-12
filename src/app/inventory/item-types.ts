@@ -208,6 +208,8 @@ export interface DimItem {
   craftedInfo: DimCrafted | null;
   /** If this item has Deepsight Resonance, this includes info about its Deepsight properties. */
   deepsightInfo: DimDeepsight | null;
+  /** If this item has a catalyst, this includes info about its catalyst properties. */
+  catalystInfo: DimCatalyst | null;
   /** an item's current breaker type, if it has one */
   breakerType: DestinyBreakerTypeDefinition | null;
   /** The state of this item in the user's D2 Collection */
@@ -269,6 +271,11 @@ export interface DimDeepsight {
   progress: number;
   /** A collection of Resonant Elements that can be extracted from this weapon once attuned */
   resonantElements: DimResonantElement[];
+}
+
+export interface DimCatalyst {
+  /** Whether the weapon catalyst is completed */
+  complete: boolean;
 }
 
 export interface DimStat {
