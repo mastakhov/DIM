@@ -26,7 +26,7 @@ import { isLoadoutBuilderItem } from './item-utils';
 import { knownModPlugCategoryHashes, slotSpecificPlugCategoryHashes } from './known-values';
 import { isInsertableArmor2Mod, sortModGroups, sortMods } from './mod-utils';
 import PlugDrawer from './plug-drawer/PlugDrawer';
-import { PlugSet } from './plug-drawer/PlugSection';
+import { PlugSet } from './plug-drawer/types';
 
 /** Raid, combat and legacy mods can have up to 5 selected. */
 const MAX_SLOT_INDEPENDENT_MODS = 5;
@@ -158,6 +158,7 @@ function mapStateToProps() {
               maxSelectable,
               selectionType: 'multi',
               plugs,
+              selected: [],
             };
 
             // Artificer armor has a single extra slot that can take slot-specific mods. Give it a special header
@@ -199,6 +200,23 @@ function ModPicker({ plugSets, lockedMods, initialQuery, onAccept, onClose }: Pr
     [lockedMods, plugSets]
   );
 
+  // Now we populate the plugsets with their corresponding plugs.
+  // Due to artificer plugsets being a subset of the corresponding bucket specific plugsets
+  // We sort the plugsets in reverse by length so we populate artificer selected if we can first.
+  plugSets.sort((a, b) => b.plugs.length - a.plugs.length);
+  for (const intialPlug of visibleSelectedMods) {
+    const possiblePlugSets = plugSets.filter((set) =>
+      set.plugs.some((plug) => plug.hash === intialPlug.hash)
+    );
+
+    for (const possiblePlugSet of possiblePlugSets) {
+      if (possiblePlugSet.selected.length < possiblePlugSet.maxSelectable) {
+        possiblePlugSet.selected.push(intialPlug);
+        break;
+      }
+    }
+  }
+
   const onAcceptWithHiddenSelectedMods = useCallback(
     (newLockedMods: PluggableInventoryItemDefinition[]) => {
       // Put back the mods that were filtered out of the display
@@ -223,7 +241,6 @@ function ModPicker({ plugSets, lockedMods, initialQuery, onAccept, onClose }: Pr
       acceptButtonText={t('LB.SelectMods')}
       initialQuery={initialQuery}
       plugSets={plugSets}
-      initiallySelected={visibleSelectedMods}
       isPlugSelectable={isModSelectable}
       sortPlugGroups={sortModPickerPlugGroups}
       sortPlugs={sortMods}
